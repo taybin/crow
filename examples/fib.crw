@@ -1,0 +1,55 @@
+message fib(dst)
+message add(dst)
+message lopnd(value)
+message ropnd(value)
+message await_result()
+message print(val)
+message result(rslt)
+
+class FibClass
+behavior (fib f; await_result = 0)
+    leave(await_result())
+    leave(f)
+
+    if here.X <= 1 then {
+        r := result(1)
+        leave(r)
+    } else {
+        s := symbol("ARITH")
+        f1 := fib(portal(lopnd,<s>))
+        send(f1, <here.S, here.X-1>)
+
+        f2 := fib(portal(ropnd,<s>))
+        send(f2,<here.S,here.X-2>)
+
+        a := add(portal(result,<here>))
+        send(a,<s>)
+    }
+end
+
+behavior(fib f; result r; precedence 100)
+    send(r, f.dst)
+    leave(r)
+end
+
+class ARITH
+behavior(add a; lopnd left; ropnd right)
+    r := result(left.value + right.value)
+    send(r, a.dst)
+end
+
+class IO
+behavior(print p)
+    write("Fib "|| here.X || " = " || p.val)
+end
+
+procedure main()
+    s := symbol("FibClass")
+    t := symbol("IO")
+
+    every i := 0 to 255 do {
+        p := portal(print, <t, i>)
+        f := fib(p)
+        send(f, <s,i>)
+    }
+end

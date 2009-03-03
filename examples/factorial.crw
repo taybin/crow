@@ -1,0 +1,39 @@
+$define MAX 255
+message fac(dst,i)
+message fac_contin(dst,i)
+message print(i)
+message result(rslt)
+
+class FAC
+behavior(fac f)
+    if f.i <= 1 then {
+        r:=result(1)
+        send(r,f.dst)
+    } else {
+        s := symbol("FAC")
+        f1 := fac(here.S, f.i-1)
+        send(f1,<s>)
+        leave(fac_contin(f.dst,f.i))
+}
+end
+
+behavior (fac_contin f;result r)
+    r2:=result(r.rslt*f.i)
+    send(r2,f.dst)
+end
+
+class IO
+behavior(print p; result r)
+    write("Factorial ",p.i, " = ", r.rslt)
+end
+
+procedure main()
+    every i := 1 to MAX do {
+	s := symbol("FAC")
+	t := symbol("IO")
+	p := print(i)
+	send(p,<t>)
+	f:=fac(<t>,i)
+	send(f,<s>)
+    }
+end

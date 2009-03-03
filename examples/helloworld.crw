@@ -1,0 +1,13 @@
+message print(text)
+
+class OUTPUT
+behavior(print p1)
+    write(p1.text||" "|| here.X)
+end
+
+procedure main()
+    bottle:=print("Hello World")
+    s := symbol("OUTPUT")
+    every i:=1 to 3 do 
+	send(bottle, <s,i>)
+end

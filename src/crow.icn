@@ -1,0 +1,31 @@
+link options
+
+global opt_tbl
+
+procedure main(args)
+    opt_tbl := options(args, "c l")
+    every i := 1 to *args do{
+	translator(args[i])
+    }
+end
+
+procedure translator(infilename)
+    local outfilename, infile, outfile, code
+
+    if infilename[-4:0] ~== ".crw" then {
+	write(infilename[-4:0])
+	stop(infilename || " is not a Crow file")
+    }
+    outfilename := infilename[1:-4] || ".icn"
+    infile := open(infilename) | stop("Cannot open " || infilename)
+    outfile := open(outfilename, "w") | stop("Cannot open " || outfilename)
+
+    code := lexengine(infile,opt_tbl)
+    every write(outfile,code[1 to *code])
+
+    close(outfile)
+    close(infile)
+    if /opt_tbl["c"] then
+	system("icont " || outfilename ||"; rm "||outfilename)
+end
+

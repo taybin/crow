@@ -1,0 +1,77 @@
+$define test_size 255
+
+message bldsumdivs(from,step,val,dst)
+message sum(remaining_opnds,sum,dst)
+message result(rslt)
+message opnd(rslt)
+message test_perf()
+message test(n)
+message sumdivs(rslt)
+
+class perf
+behavior(bldsumdivs msg)
+    k := msg.from + msg.step
+    if k >= msg.val then {
+        r := result()
+        j := msg.val/msg.from
+        if msg.val % msg.from = 0 then
+            r.rslt := msg.from
+        else
+            r.rslt := 0
+        send(r,msg.dst)
+    }else {
+        s := sum()
+        b := bldsumdivs()
+        s.sum := 0
+        s.remaining_opnds := 2
+        s.dst := msg.dst
+        leave(s)
+
+        b.from := msg.from + msg.step
+        b.step := 2 * msg.step
+        b.val := msg.val
+        b.dst := portal(opnd,here)
+        send(b,<symbol("perf"),0>)
+
+        msg.step *:= 2
+        msg.dst := portal(opnd,here)
+        send(msg,<symbol("perf"),0>)
+    }
+end
+
+behavior(sum s;opnd op)
+    s.sum +:= op.rslt
+    s.remaining_opnds -:= 1
+    if s.remaining_opnds = 0 then{
+        r := result(s.sum)
+        send(r,s.dst)
+    } else
+        leave(s)
+end
+
+behavior (test_perf msg)
+    b := bldsumdivs()
+    b.from := 1
+    b.step := 1
+    b.val := here.X
+    b.dst := portal(sumdivs,here)
+    send(b,<symbol("perf"),0>)
+end
+
+behavior(sumdivs msg)
+    write("at "||here.X||" result = "||msg.rslt)
+    if here.X = msg.rslt then
+        write("perfect # "||here.X)
+end
+
+behavior(test msg)
+    if msg.n < here.X then
+        return
+    leave(test_perf())
+    send(msg,<here.S,here.X+1>)
+end
+
+procedure main()
+    t := test(test_size)
+    send(t,<symbol("perf"),2>)
+end

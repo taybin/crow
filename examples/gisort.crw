@@ -1,0 +1,79 @@
+link graphics
+
+$define NUM_ELEMS 128
+$define delay     10
+
+message elem(val,place)
+message insert(val, sig,place)
+message signal()
+message print()
+message await_inserts(count, array)
+message done()
+
+class IS
+behavior(insert i)
+    o := elem(i.val,i.place)
+    s := signal()
+    leave(o)
+    send(s,i.sig)
+end
+
+behavior(elem e; insert i; precedence 10)
+    if i.val < e.val then {
+        i.val :=: e.val
+        
+        WDelay(delay/2)
+        Fg("white")
+        DrawLine(i.place, NUM_ELEMS, i.place, e.val)
+        DrawLine(e.place, NUM_ELEMS, e.place, i.val)
+        Fg("black")
+        DrawLine(i.place, NUM_ELEMS, i.place, i.val)
+        DrawLine(e.place, NUM_ELEMS, e.place, e.val)
+    }
+    send(i, <here.S, here.X+1>)
+    write("Sent ", i.val, " to ", here.X+1)
+    leave(e)
+end
+
+behavior(await_inserts a; done d)
+    a.count -:= 1
+    if a.count <= 0 then
+        send(print(), <a.array>)
+    else
+        leave(a)
+end
+
+behavior(elem e; print p)
+    write(e.val)
+    send(p, <here.S,here.X+1>)
+    leave(e)
+end
+
+procedure main(argv)
+    WOpen() | stop("can't open window")
+    l := initialize()
+
+    n := NUM_ELEMS
+    
+    s := symbol("IS")
+    t := symbol("IS")
+   
+    every i := 1 to NUM_ELEMS do {
+	rand := pop(l)
+	m := insert(rand, portal(done,<t>), i)
+	send(m,<s>)
+	DrawLine(i, NUM_ELEMS, i, rand)
+    }
+
+    wait := await_inserts(n,s)
+    send(wait, <t>)
+end
+
+procedure initialize()
+    l := list(NUM_ELEMS,0)
+    every i := 1 to *l do
+	l[i] := i
+    every i:= 1 to *l do
+	l[i] :=: ?l
+    return l
+end

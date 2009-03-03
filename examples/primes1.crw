@@ -1,0 +1,70 @@
+$define UNTIL 1000
+message elem(val)
+message eos()
+message gen(i,step,til)
+message filter(out)
+message cast_out(m,out)
+message print()
+
+class Primes
+behavior(filter f; eos e)
+    send(e,f.out)
+end
+
+behavior(filter f;elem e)
+    s:=symbol("Primes")
+    c:=cast_out()
+
+    c.m:=e.val
+    c.out := <s,0>
+    send(c,<here.S,here.X+1>)
+
+    send(e,f.out)
+    f.out +:= 1
+    send(f,<s,0>)
+end
+
+behavior(cast_out c;eos e)
+    send(e,c.out)
+end
+
+behavior(cast_out c;elem e)
+    if e.val %c.m ~= 0 then {
+         send(e,c.out)
+         c.out +:= 1
+    }
+    send(c,<here.S,here.X+1>)
+end
+
+behavior(gen g)
+    if g.i <= g.til then {
+        e := elem()
+        e.val := g.i
+        g.i +:= g.step
+        send(g,<here.S,here.X+1>)
+        leave(e)
+    } else
+        leave(eos())
+end
+
+behavior(print p; elem e)
+    write(e.val)
+    send(p,<here.S,here.X+1>)
+end
+
+procedure main()
+    s:=symbol("Primes")
+    t:=symbol("Primes")
+    g:=gen()
+    f:=filter()
+    p:=print()
+
+    g.i:=2
+    g.step := 1
+    g.til := UNTIL
+    send(g,<s,0>)
+
+    f.out:=<t,0>
+    send(f,<s,0>)
+    send(p,<t,0>)
+end

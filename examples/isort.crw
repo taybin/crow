@@ -1,0 +1,55 @@
+$define NUM_ELEMS 32
+$define RANGE     128
+
+message elem(val)
+message insert(val, sig)
+message signal()
+message print()
+message await_inserts(count, array)
+message done()
+
+class IS
+behavior(insert i)
+    o := elem(i.val)
+    s := signal()
+    leave(o)
+    send(s,i.sig)
+end
+
+behavior(elem e; insert i; precedence 10)
+    if i.val < e.val then
+        i.val :=: e.val
+
+    send(i, <here.S, here.X+1>)
+    leave(e)
+end
+
+behavior(await_inserts a; done d)
+    a.count -:= 1
+    if a.count <= 0 then
+        send(print(), <a.array>)
+    else
+        leave(a)
+end
+
+behavior(elem e; print p)
+    write(e.val)
+    send(p, <here.S,here.X+1>)
+    leave(e)
+end
+
+procedure main(argv)
+    n := NUM_ELEMS
+    
+    s := symbol("IS")
+    t := symbol("IS")
+   
+    every i := n to 1 by -1 do {
+	m := insert(?RANGE, portal(done,<t>))
+	send(m,<s>)
+    }
+
+    wait := await_inserts(n,s)
+    send(wait, <t>)
+end
+

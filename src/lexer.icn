@@ -1,0 +1,431 @@
+# Supers is a list of strings.  It contains the superclasses for the class.
+# Behaviors is a list contain the behaviors for the class.
+record classtype(supers, behaviors)
+
+# Bname is the name of the behavior (ie. behavior_3)
+# Precedence is the behavior's precedence.
+# Patterns is a list of the patterns of the behavior.
+record behavior(bname, precedence, patterns)
+
+# Msg_Type is a string containing the bname of the message to be compared.
+# Relop is the operator for the pattern.
+# number is the number to be compared to.
+record pattern(msg_type, relop, number)
+
+# classes is the main data structure containing all the data
+# that is found in the crow file.  It is a hash table containing 
+# multiple classtype structures.
+
+# classname is the most recently found class
+
+# msg_list is a list of the messages.
+
+# opt_tbl is a table of the command line options
+
+global classes, classname, msg_list, opt_tbl
+
+# lexengine() reads a file one line at a time.  That line is then sent
+# through a series of filters and appended onto a list.  After the
+# last line is read, additional code is appended to the list.  The
+# list is then returned.
+procedure lexengine(input, options)
+    local line, code
+    opt_tbl := options
+    code := list(1," ")
+    classes := table(0)
+
+    while line := read(input) do {
+	line := findmessage(line)
+	line := findloci(line)
+	line := findclasses(line)
+	line := findbehaviors(line)
+	line := findleaves(line)
+
+	code |||:= [line]
+    }
+    additional(code)
+#    printclasses()
+    return code
+end
+
+# Prints out the contents of the global classes variable.
+procedure printclasses()
+    every x := key(classes) do{
+	write("Class: ",x)
+	every y := !classes[x].behaviors do {
+	    write(y.bname," precedence: ", y.precedence)
+	    every z := !y.patterns do {
+		write("Msg type: ",z.msg_type," Operator: ", z.relop,
+		      " Number: ", z.number)
+	    }
+	}
+    }
+end
+
+# The additional() procedure adds the runtime system to a crow program.
+# This includes adding a list of all the messages.
+procedure additional(code)
+    local line, word
+    
+    line := "record messages( "
+    while word := pull(msg_list) do
+	line ||:= word || "," 
+    line[-1] := ")"
+    push(code,line)
+    put(code,"###############################SPECIFIC######################")
+    addsetup(code)
+    addsymbol(code)
+    addgetclass(code)
+    put(code,"###############################GENERIC#######################")
+    addgeneric(code)
+    push(code, "record classtype(behaviors, messages)\n")
+    push(code, "record behavior(bname, patterns)")
+    push(code, "record pattern(msg_type, relop, number)")
+    push(code, "record portal(msgtype, locus)")
+    push(code, "record locus_type(S, X)")
+    push(code, "global locations, classes, active")
+    push(code, "invocable all")
+end
+
+# Changes message declarations into record declarations and adds the
+# message type to the list.
+procedure findmessage(line)
+    local bname
+    initial msg_list := list(0)
+
+    line ? {
+	tab(many(' '))
+	if ="message " then {
+	    bname := tab(upto(' ('))
+	    line := "record " || bname || tab(0)
+	    push(msg_list, bname)
+	}
+    }
+    return line
+end
+
+# Naive algorithm.  Does not allow for more than one
+# loci on a line.
+procedure findloci(line)
+    local buffer, old_pos
+   
+    if line ? {bal('<','<','>') & find(">")} then
+	line ? {
+	    tab(find('<'))
+	    move(-1)
+	    while any(' ') do move(-1)
+
+	    if many(&digits++&letters++')') then
+		return line
+	    tab(find('<'))
+	    buffer := tab(1) || "loci("
+  	    tab(find('<'))
+  	    old_pos := &pos
+  	    tab(find('>'))
+  	    buffer ||:= line[old_pos+1:&pos] || ")" || line[&pos+1:0]
+	    return buffer
+	}
+    return line
+end
+
+# findbehaviors() checks to see if the line starts with "behavior".  A
+# series of spaces may procede the "behavior".  If so, the pattern of 
+# the behavior is sent to scanbehavior().
+procedure findbehaviors(line)
+    local buffer
+    static count
+    initial count := 1
+    
+    line ? {
+	tab(many(' '))
+	if ="procedure main" then
+	    return "procedure initial_beh" || tab(0)
+	else if ="behavior" then {
+	    buffer := "procedure behavior_" || count || "(here)"
+	    buffer ||:= scanbehavior(line[find("(")+1:find(")")], count)
+	    count +:= 1
+	    return buffer
+	}
+    }
+    return line
+end
+
+# findclasses() checks if the line is a classes declaration.  If it is,
+# findclasses() parses any superclasses and addes the data to the classes
+# structure.
+procedure findclasses(line)
+    local super
+    super := list(0)
+
+    line ? {
+	tab(many(' '))
+	if ="class " then {
+	    classname := tab(upto(' :')) | tab(0)
+	    classes[classname] := classtype(list(0),list(0))
+  	    until pos(0) do {
+  		tab(many(' :'))
+  		super |||:= [tab(upto(' :')) | tab(0)]
+		classes[classname].supers := super
+  	    }
+	    return ""
+	}
+    }
+    return line
+end
+
+# This finds any calls to the leave() function and converts them to
+# a send() with the destination as "here"
+procedure findleaves(line)
+    local buffer
+    if find(" leave(", line) then
+	line ? {
+	    tab(find(" leave("))
+	    buffer := tab(1) || " send("
+	    tab(find(" leave("))
+	    move(7)
+	    buffer ||:= tab(bal(")","(",")")) || ", here)" 
+	    return buffer
+	}
+    return line
+end
+
+# This ugly procedure scans the pattern in a behavior definition.  It's
+# not so bad if you don't have to change it.  At the end, it inserts the
+# behavior into the classes structure by calling insertbehavior().
+procedure scanbehavior(line,count)
+    local buffer, var_name, type_name, op_name, number, precedence, patterns
+    buffer := "\n"
+    var_name := list(0)
+    patterns := list(0)
+    precedence := 0
+
+    line ? {
+  	until pos(0) do {
+  	    tab(many(' ,'))
+  	    if ="precedence " then
+  		precedence := tab(upto(' ;')) | tab(0)
+  	    else if any(&letters) & /type_name then
+  		type_name := tab(upto(' ,=<>~'))
+  	    else if any('=<>~') then {
+  		op_name := tab(upto(' '++&letters++&digits))
+		tab(many(' '))
+		number := tab(upto(' ;')) | tab(0)
+  	    } else if any(&letters) & \type_name then {
+		colon := find(";") | *line+1
+		while &pos < colon do {
+		    var_name |||:= [tab(upto(' ,;')) | tab(0)]
+		    tab(many(' ,'))
+		}
+	    }
+
+	    if \type_name & *var_name > 0 & /op_name then {
+		every var := !var_name do
+		    buffer ||:= "    " || var ||
+			":=pull(locations[loci(here)]." || type_name || ")\n"
+		patterns |||:= [pattern(type_name,">=",*var_name)]
+		type_name := &null
+		var_name := list(0)
+		tab(upto(';')+1)
+	    } else if \type_name & \op_name & \number then {
+		patterns |||:= [pattern(type_name, op_name, number)]
+		type_name := op_name := number := &null
+    		tab(upto(';')+1)
+	    }
+	}
+    }
+    insertbehavior(behavior("behavior_"||count, precedence, patterns))
+    return buffer
+end
+
+# This procedure is necessary so that the behaviors within a class are
+# listed in decending order of precedence
+procedure insertbehavior(behavior)
+    local p,i
+    p := behavior.precedence
+    i := 1
+
+    if *classes[classname].behaviors = 0 | p = 0 then {
+	classes[classname].behaviors |||:= [behavior]
+	return
+    }
+
+    while p < classes[classname].behaviors[i].precedence do
+	i+:=1
+
+   classes[classname].behaviors := [behavior] ||| classes[classname].behaviors
+end
+
+# This longish procedure isn't so long if you consider what it does.  It
+# always adds the same generic code to the file.  The output never changes.
+# So although it may be too large to view at once, it is bugless.
+procedure addgeneric(code)
+    local main, fitspattern, send, loci, decodelocus
+    
+    # main() is the driver for the runtime system.  The old main was
+    # renamed initial_beh().  main() contains a loop that iterates
+    # over all the locations that have had a message sent to them.
+    # If the location has a pattern that matches, its behavior is called.
+    # This happens until the number of locations on the active list is
+    # equal to zero.
+    main := "\nprocedure main(args)_
+             \nlocal classname, class_type, behave, current_
+             \nlocations:=table(0)_
+             \nactive:=list(0)_
+             \nsetup()_
+             \ninitial_beh(args)_
+             \nrepeat{_
+             \n    while current:=pull(active)do{_
+             \n        classname:=getclass(current)_
+             \n        class_type:=classes[classname]_
+             \n        behave:=fitspattern(current,class_type)_
+             \n        if \\behave then{_
+             \n            behave(decodelocus(current))_
+             \n            break_
+             \n        }_
+             \n    }_
+             \nif *active = 0 then_
+             \n    break_
+             \n}" ||
+	     if \opt_tbl["l"] then "\nWDone()\nend"
+             else "\nend"
+
+
+    # fitspattern() takes the current location and its class_type.  From that,
+    # it iterates over all the behaviors and sees if any of their patterns
+    # match.  If one does, fitspattern() returns that behavior.
+    fitspattern := "\nprocedure fitspattern(current, class_type)_
+                    \nlocal behave, pat, good_
+                    \nevery behave:= !class_type do{_
+                    \n    good := \"yes\"_
+                    \n    every pat := !behave.patterns do{_
+                    \n    if not pat.relop(*locations[current][pat.msg_type],_
+		    \n	                   pat.number) then {_
+		    \n         good := \"no\"_
+		    \n         break_
+	            \n    }_
+	            \n}_
+	            \nif good == \"yes\" then_
+	            \n    return behave.bname_
+                    \n}_
+                    \nreturn_
+                    \nend"
+
+    # The reason send() is so long is that is has to deal with the three
+    # data types that can be sent to it.  "portal", "locus_type", and 
+    # even the lowly integer.  This is because there are two representations
+    # for a location and one method of indirection.  send() doesn't return
+    # a value.  It does push the msg onto the appropriate queue.  If the
+    # msg is of type "portal", the portal is decoded and sent to send().
+    send := "\nprocedure send(msg, locus)_
+             \nlocal combined, loc_
+             \n\nif type(locus) == \"portal\" then {_
+	     \n    send(locus.msgtype ! msg, locus.locus)_
+	     \n    return_
+             \n}_
+             \nif type(locus) == \"locus_type\" then_
+	     \n    combined := loci(locus.S, locus.X)_
+             \nelse if type(locus) == \"integer\" then_
+	     \n    combined := locus_
+             \nif type(locations[combined])==\"integer\" then {_
+	     \n    locations[combined] := messages()_
+	     \n    every !locations[combined] := list(0)_
+             \n}_
+             \nloc := locations[combined]_
+             \nloc[type(msg)] |||:= [msg]_
+             \npush(active, combined)_
+             \nend"
+
+    # This is another procedure that is longer because it accepts multiple
+    # types.  loci() takes either two integers or one locus_type.  In
+    # either case, it performs a bit-or and returns an integer.
+    loci := "\nprocedure loci(S,X)_
+             \nif type(S) == \"locus_type\" then_
+             \n    X:= S.X & S:=S.S_
+             \n/X:=0_
+             \nreturn ior(S,X)_
+             \nend"
+
+    # decodelocus() takes an integer and returns its equivilant locus_type.
+    decodelocus := "\nprocedure decodelocus(bits)_
+                    \nlocal locus_
+                    \nlocus:=locus_type()_
+                    \nlocus.X := iand(bits,255)_
+                    \nlocus.S := iand(bits,-256)_
+                    \nreturn locus_
+                    \nend"
+
+    put(code,send)
+    put(code,loci)
+    put(code,decodelocus)
+    put(code,fitspattern)
+    put(code,main)
+end
+
+# addsetup() adds a setup() procedure to the runtime system.  The setup()
+# procedure initializes the data structures of the Crow program at runtime.
+# It adds all the classes, behaviors, and patterns.  This procedure is the
+# first action taken in the runtime system.
+procedure addsetup(code)
+    local setup, c,b,p
+    setup := "procedure setup()\nclasses:=table(0)\n"
+    every c := key(classes) do {
+	setup ||:= "\nclasses[\""||c||"\"]:=["
+	every b := !classes[c].behaviors do {
+	    setup||:="\nbehavior(\""||b.bname||"\",["
+	    every p := !b.patterns do {
+		setup||:="\npattern(\""||p.msg_type||"\",\""||
+		    p.relop||"\","||p.number||"),"
+	    }
+	    setup[-1] := "]),"
+	}
+	setup[-1] := "]"
+    }
+    setup||:="\nend"
+    put(code,setup)
+end
+
+# addsymbol() appends a custom symbol() procedure.  This procedure
+# generates a unique integer based on the class given to the procedure.
+procedure addsymbol(code)
+    local symbol,c,i
+    i := 1
+    symbol := "\nprocedure symbol(class)\nstatic "
+    every c := key(classes) do
+	symbol ||:= c || ","
+    symbol[-1]:="\n"
+
+    symbol ||:="initial {"
+    every c:=key(classes) do
+	symbol ||:= c || ":="
+    symbol ||:= "0}\n"
+
+    symbol ||:= "case class of {\n"
+    every c:=key(classes) do{
+	symbol ||:= "\"" || c || "\":suspend " || c || 
+	"+:= 2^" || (24/*classes)*i ||"\n"
+	i+:=1
+    }
+    symbol ||:= "default:write(\"Error, bad classname \", class)_
+                     & exit(1)\n}\nend\n"
+    put(code,symbol)
+end
+
+# addgetclass() appends a custom getclass() procedure.  This procedure
+# returns the type of class a given symbol is a member of.  The symbol
+# should be attained from the symbol() procedure.
+procedure addgetclass(code)
+    local getclass, re,i
+    re := list(0)
+    i:=*classes
+    every re |||:=[key(classes)]
+    getclass := "procedure getclass(locus)\n"
+    every c := !re do {
+	getclass ||:= "if locus >=2^"||(24/*classes)*i||" then\n"||
+	    "return \""||re[i]||"\"\nelse "
+	i-:=1
+    }
+    getclass ||:="\n write(\"Error, bad symbol \", locus)& exit(1)\nend"
+
+    put(code,getclass)
+end
+
