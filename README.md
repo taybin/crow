@@ -4,7 +4,7 @@ A messaging language superset of Icon
 
 ## Overview
 
-Crow takes the actor model as implemented by [MDC-90](https://dl.acm.org/citation.cfm?id=67405) and adds it to [Icon](https://www2.cs.arizona.edu/icon/index.htm).
+Crow takes the [actor model](https://en.wikipedia.org/wiki/Actor_model) as implemented by [MDC-90](https://dl.acm.org/citation.cfm?id=67405) and adds it to [Icon](https://www2.cs.arizona.edu/icon/index.htm).
 
 ### Structure
 
