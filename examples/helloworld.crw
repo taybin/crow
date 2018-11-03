@@ -6,7 +6,7 @@ behavior(print p1)
 end
 
 procedure main()
-    bottle:=print("Hello World")
+    bottle := print("Hello World")
     s := symbol("OUTPUT")
     every i:=1 to 3 do 
 	send(bottle, <s,i>)
