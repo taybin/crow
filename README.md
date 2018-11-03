@@ -34,7 +34,7 @@ There are other examples for simple problems like generating primes and fibanocc
 
 ## Why?
 
-In college I was very interested in programming languages. I had learned the usual C, Java, and Python, but kept googling for lesser known languages. My professor didn't mind if I used Icon (in fact he had studied under Bill Griswold, son of Ralph Griswold, creator of Icon, and was well aware of it). It ended up being my secret weapon for completing assignments. It was the first language that I didn't feel I was fighting with when I thought of a design for a homework project. Its backtracking remains a compelling language feature and I hope to see it gain popularity again some day.
+In college I was very interested in programming languages. I had learned the usual C, Java, and Python, but kept googling for lesser known languages. My [professor](http://www.cse.scu.edu/~atkinson/) didn't mind if I used Icon (in fact he had studied under [Bill Griswold](https://cseweb.ucsd.edu/~wgg/), son of [Ralph Griswold](https://history.computer.org/pioneers/griswold.html), creator of Icon, and was well aware of it). It ended up being my secret weapon for completing assignments. It was the first language that I didn't feel I was fighting with when I thought of a design for a homework project. Its backtracking remains a compelling language feature and I hope to see it gain popularity again some day.
 
 I decided I wanted my senior project to be a language, but I wasn't sure what to do. At the time POSIX threads were very intimidating so I started searching for alternate concurrency paradigms. MDC-90 wasn't as lost to memory as it is now. It added actors support to the C language. I read its documentation and decided to take its additions and add it to Icon.
 
@@ -43,3 +43,8 @@ I was a bit unprepared for this task. My college didn't have a compiler course, 
 I also wrote four papers explaining it to my advisor. I've lost the LaTeX documents, but still have the `dvi` and `pdf` files. Reading through them now is a bit embarressing due to the quality of the writing and they come across rather sophomoric.
 
 I am proud of what I implemented and after writing a lot of Erlang code fifteen years later, and developing a love for the actor model, I feel like I was a little ahead of the game after all.
+
+## Miscellaneous
+
+- The creator of MDC-90, [Thomas Christopher](https://www.tools-of-computing.com/tc/), was also a fan of Icon and wrote a [manual](https://www.tools-of-computing.com/tc/CS/iconprog.pdf) for it. I found this out after starting my project.
+- I picked the name Crow because I was (and remain) a huge MST3K fan.
