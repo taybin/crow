@@ -28,6 +28,14 @@ procedure main()
 end
 ```
 
+This declares a message `print` with one field, `text`. It then declares a class `OUTPUT` with one behavior which accepts messages composed of one `print` message. It concats the `text` field of the message with the integer id `here.X`. `here` can be thought of as similar to `this` or `self` in an OOP language. `X` is the id of the class.
+
+In `main`, we create a `print` message named `bottle`. We don't instantiate a class, but we do get a reference to its type with the `symbol()` procedure.
+
+`every i := 1 to 3 do` is a standard for-loop in Icon. In its body, we send the `bottle` message to three `OUTPUT`. The model for MDC is there is a two dimensional grid for these nodes, and each one can have one or more classes at each node. For Crow, I simplified this to just a one dimensional array. Thus, `<s,i>` for the symbol and the location.
+
+The runtime then ensures the messages go to three different locations and handles calling the behaviors that match at each location.
+
 #### Other examples
 
 There are other examples for simple problems like generating primes and fibanocci sequences. I am not able to explain how they work. The implementations were transcribed from MDC-90 examples, and they ran and had the correct results, but in 2000 I had a hard time understanding how they were working. Now, looking at these undocumented examples, I have an even harder time.
